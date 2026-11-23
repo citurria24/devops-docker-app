@@ -1,0 +1,5 @@
+# Dependencias de runtime (las que van en la imagen). Versiones exactas.
+fastapi==0.165.0
+uvicorn==0.54.0
+SQLAlchemy==2.1.9
+psycopg[binary]==3.3.9

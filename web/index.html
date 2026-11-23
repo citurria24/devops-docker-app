@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RunLog</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --border: #262b36;
+      --text: #e6e8ee;
+      --muted: #8b93a7;
+      --accent: #4ade80;
+      --danger: #f87171;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    main { max-width: 900px; margin: 0 auto; padding: 24px 16px 48px; }
+    header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.02em; }
+    h1 span { color: var(--accent); }
+    h2 { font-size: 1rem; color: var(--muted); font-weight: 600; margin: 32px 0 12px; }
+    .status { font-size: 0.85rem; color: var(--muted); }
+    .status::before { content: "●"; margin-right: 6px; color: var(--muted); }
+    .status.ok::before { color: var(--accent); }
+    .status.err::before { color: var(--danger); }
+
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 20px; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+    .card .label { color: var(--muted); font-size: 0.8rem; }
+    .card .value { font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .card .sub { color: var(--muted); font-size: 0.8rem; }
+
+    form { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; align-items: end; }
+    label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+    label.wide { grid-column: 1 / -1; }
+    .duration { display: flex; gap: 6px; }
+    input {
+      width: 100%; padding: 8px 10px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit;
+    }
+    input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+    button {
+      padding: 9px 16px; border-radius: 8px; border: 0; cursor: pointer;
+      background: var(--accent); color: #06210f; font: inherit; font-weight: 600;
+    }
+    button:disabled { opacity: 0.6; cursor: wait; }
+    button.delete { background: transparent; color: var(--danger); padding: 4px 8px; }
+    button.delete:hover { background: rgba(248, 113, 113, 0.12); }
+    .error { color: var(--danger); font-size: 0.85rem; min-height: 1.3em; margin: 8px 0 0; }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    th { color: var(--muted); font-weight: 500; font-size: 0.8rem; }
+    td.notes { white-space: normal; color: var(--muted); }
+    td.num, th.num { text-align: right; }
+    .empty { color: var(--muted); text-align: center; padding: 24px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Run<span>Log</span></h1>
+    <span id="status" class="status">conectando…</span>
+  </header>
+
+  <section class="stats" aria-label="Estadísticas">
+    <div class="card"><div class="label">Km totales</div><div class="value" id="stat-km">–</div></div>
+    <div class="card"><div class="label">Salidas</div><div class="value" id="stat-runs">–</div></div>
+    <div class="card"><div class="label">Ritmo promedio</div><div class="value" id="stat-pace">–</div><div class="sub">min/km</div></div>
+    <div class="card"><div class="label">Salida más larga</div><div class="value" id="stat-longest">–</div><div class="sub" id="stat-longest-date">&nbsp;</div></div>
+  </section>
+
+  <h2>Nueva salida</h2>
+  <form id="run-form" class="card" novalidate>
+    <label>Fecha
+      <input type="date" name="date" required>
+    </label>
+    <label>Distancia (km)
+      <input type="number" name="distance_km" min="0.01" step="0.01" placeholder="10" required>
+    </label>
+    <label>Duración (min : seg)
+      <span class="duration">
+        <input type="number" name="minutes" min="0" step="1" placeholder="50" required aria-label="Minutos">
+        <input type="number" name="seconds" min="0" max="59" step="1" placeholder="00" aria-label="Segundos">
+      </span>
+    </label>
+    <button type="submit">Agregar</button>
+    <label class="wide">Notas
+      <input type="text" name="notes" maxlength="500" placeholder="Fondo, series, cómo te sentiste…">
+    </label>
+  </form>
+  <p id="form-error" class="error" role="alert"></p>
+
+  <h2>Salidas</h2>
+  <div class="card table-wrap">
+    <table>
+      <thead>
+        <tr><th>Fecha</th><th class="num">Km</th><th class="num">Duración</th><th class="num">Ritmo</th><th>Notas</th><th></th></tr>
+      </thead>
+      <tbody id="runs"><tr><td colspan="6" class="empty">Cargando…</td></tr></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+  // Rutas RELATIVAS a propósito: el navegador le pide /api/... al mismo origen
+  // que sirvió esta página (nginx en :8080), y nginx lo reenvía a la api.
+  // Así no hay URLs hardcodeadas ni problemas de CORS.
+  const API = "/api";
+
+  const $ = (sel) => document.querySelector(sel);
+  const fmtKm = (km) => km.toLocaleString("es-AR", { maximumFractionDigits: 2 });
+  const fmtDate = (iso) => new Date(iso + "T00:00:00").toLocaleDateString("es-AR");
+  // Fecha de hoy en hora LOCAL (valueAsDate usa UTC y de noche daría mañana).
+  const todayLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  function fmtDuration(totalSeconds) {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = String(totalSeconds % 60).padStart(2, "0");
+    return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+  }
+
+  async function api(path, options = {}) {
+    const resp = await fetch(API + path, {
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+    if (!resp.ok) {
+      let detail = `HTTP ${resp.status}`;
+      try {
+        const body = await resp.json();
+        if (typeof body.detail === "string") detail = body.detail;
+        else if (Array.isArray(body.detail)) detail = body.detail.map((d) => d.msg).join(", ");
+      } catch { /* respuesta sin JSON */ }
+      throw new Error(detail);
+    }
+    return resp.status === 204 ? null : resp.json();
+  }
+
+  async function loadHealth() {
+    const el = $("#status");
+    try {
+      await api("/health");
+      el.textContent = "api y base ok";
+      el.className = "status ok";
+    } catch (e) {
+      el.textContent = "sin conexión con la api";
+      el.className = "status err";
+    }
+  }
+
+  async function loadStats() {
+    const s = await api("/stats");
+    $("#stat-km").textContent = fmtKm(s.total_km);
+    $("#stat-runs").textContent = s.total_runs;
+    $("#stat-pace").textContent = s.avg_pace ?? "–";
+    $("#stat-longest").textContent = s.longest_run ? `${fmtKm(s.longest_run.distance_km)} km` : "–";
+    $("#stat-longest-date").textContent = s.longest_run ? fmtDate(s.longest_run.date) : " ";
+  }
+
+  async function loadRuns() {
+    const runs = await api("/runs");
+    const tbody = $("#runs");
+    tbody.replaceChildren();
+    if (!runs.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">Todavía no hay salidas.</td></tr>';
+      return;
+    }
+    for (const r of runs) {
+      const tr = document.createElement("tr");
+      // textContent (no innerHTML) para los datos del usuario: evita XSS con las notas.
+      const cells = [
+        [fmtDate(r.date)],
+        [fmtKm(r.distance_km), "num"],
+        [fmtDuration(r.duration_seconds), "num"],
+        [r.pace, "num"],
+        [r.notes, "notes"],
+      ];
+      for (const [text, cls] of cells) {
+        const td = document.createElement("td");
+        td.textContent = text;
+        if (cls) td.className = cls;
+        tr.append(td);
+      }
+      const td = document.createElement("td");
+      const btn = document.createElement("button");
+      btn.className = "delete";
+      btn.textContent = "Borrar";
+      btn.title = "Borrar salida";
+      btn.addEventListener("click", () => deleteRun(r.id));
+      td.append(btn);
+      tr.append(td);
+      tbody.append(tr);
+    }
+  }
+
+  async function refresh() {
+    try {
+      await Promise.all([loadStats(), loadRuns()]);
+    } catch (e) {
+      $("#runs").innerHTML = '<tr><td colspan="6" class="empty">No se pudieron cargar las salidas.</td></tr>';
+    }
+  }
+
+  async function deleteRun(id) {
+    if (!confirm("¿Borrar esta salida?")) return;
+    try {
+      await api(`/runs/${id}`, { method: "DELETE" });
+      await refresh();
+    } catch (e) {
+      alert("No se pudo borrar: " + e.message);
+    }
+  }
+
+  $("#run-form").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const form = ev.target;
+    const errorEl = $("#form-error");
+    errorEl.textContent = "";
+
+    const data = new FormData(form);
+    const distance = parseFloat(data.get("distance_km"));
+    const seconds = parseInt(data.get("minutes") || "0", 10) * 60 + parseInt(data.get("seconds") || "0", 10);
+    if (!data.get("date")) return (errorEl.textContent = "Elegí una fecha.");
+    if (!(distance > 0)) return (errorEl.textContent = "La distancia tiene que ser mayor a 0.");
+    if (!(seconds > 0)) return (errorEl.textContent = "La duración tiene que ser mayor a 0.");
+
+    const button = form.querySelector("button");
+    button.disabled = true;
+    try {
+      await api("/runs", {
+        method: "POST",
+        body: JSON.stringify({
+          date: data.get("date"),
+          distance_km: distance,
+          duration_seconds: seconds,
+          notes: (data.get("notes") || "").trim(),
+        }),
+      });
+      form.reset();
+      form.date.value = todayLocal();
+      await refresh();
+    } catch (e) {
+      errorEl.textContent = "No se pudo guardar: " + e.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $("#run-form").date.value = todayLocal();
+  loadHealth();
+  refresh();
+</script>
+</body>
+</html>
